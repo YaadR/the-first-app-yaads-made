@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { OpenAI } from 'openai';
-import { ImageIcon, Code2, MessageSquare, UserCircle2 } from 'lucide-react';
+import { ImageIcon, Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
 import ImageGenerator from './components/ImageGenerator';
 import ChatBot from './components/ChatBot';
 import Auth from './components/Auth/Auth';
@@ -8,6 +8,7 @@ import Subscription from './components/Subscription';
 import About from './components/About';
 import Contact from './components/Contact';
 import AddUser from './components/AddUser';
+import PresentationViewer from './components/PresentationViewer';
 import UserMenu from './components/UserMenu';
 import { auth } from './config/firebase';
 import { User } from 'firebase/auth';
@@ -18,9 +19,11 @@ const openai = new OpenAI({
 });
 
 function App() {
-  const [activePage, setActivePage] = useState('image');
+  const [activeTool, setActiveTool] = useState('image');
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -29,31 +32,38 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  const renderContent = () => {
-    switch (activePage) {
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+    setMenuOpen(false);
+  };
+
+  const renderTool = () => {
+    if (!user && !devMode) {
+      return (
+        <div className="text-center p-8">
+          <p className="text-xl mb-4">Please log in to access the tools</p>
+          <button
+            onClick={() => setShowAuth(true)}
+            className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+          >
+            Login to Continue
+          </button>
+        </div>
+      );
+    }
+
+    switch (activeTool) {
       case 'image':
+        return <ImageGenerator openai={openai} />;
       case 'chat':
-        return !user ? (
-          <div className="text-center">
-            <p className="text-xl mb-4">Please log in to access the AI tools</p>
-            <button
-              onClick={() => setShowAuth(true)}
-              className="bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
-            >
-              Login to Continue
-            </button>
-          </div>
-        ) : (
-          activePage === 'image' ? <ImageGenerator openai={openai} /> : <ChatBot openai={openai} />
-        );
-      case 'addUser':
-        return <AddUser />;
-      case 'subscription':
-        return <Subscription />;
-      case 'about':
-        return <About />;
-      case 'contact':
-        return <Contact />;
+        return <ChatBot openai={openai} />;
+      case 'users':
+        return <AddUser devMode={devMode} />;
+      case 'presentation':
+        return <PresentationViewer />;
       default:
         return null;
     }
@@ -61,110 +71,140 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="bg-gray-800 text-white py-4">
+      <header className="bg-gray-800 text-white py-4 fixed w-full z-50">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center">
             <Code2 className="mr-2" size={24} />
             <span className="text-xl font-bold">The Koko App</span>
           </div>
-          <nav className="flex items-center space-x-6">
-            <ul className="flex space-x-4">
+          
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setDevMode(!devMode)}
+              className="flex items-center space-x-2 text-sm"
+              title="Toggle Developer Mode"
+            >
+              {devMode ? (
+                <ToggleRight className="text-green-400" size={24} />
+              ) : (
+                <ToggleLeft className="text-gray-400" size={24} />
+              )}
+            </button>
+            
+            <div className="md:hidden">
+              <button onClick={() => setMenuOpen(!menuOpen)} className="p-2">
+                {menuOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
+          </div>
+
+          <nav className={`${menuOpen ? 'block' : 'hidden'} md:block absolute md:relative top-full left-0 w-full md:w-auto bg-gray-800 md:bg-transparent`}>
+            <ul className="flex flex-col md:flex-row md:items-center md:space-x-6 p-4 md:p-0">
               <li>
-                <button 
-                  onClick={() => setActivePage('image')} 
-                  className="hover:text-gray-300"
-                >
-                  Home
+                <button onClick={() => scrollToSection('tools')} className="w-full text-left py-2 md:py-0 hover:text-gray-300">
+                  Tools
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActivePage('subscription')} 
-                  className="hover:text-gray-300"
-                >
+                <button onClick={() => scrollToSection('pricing')} className="w-full text-left py-2 md:py-0 hover:text-gray-300">
                   Pricing
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActivePage('about')} 
-                  className="hover:text-gray-300"
-                >
+                <button onClick={() => scrollToSection('about')} className="w-full text-left py-2 md:py-0 hover:text-gray-300">
                   About
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={() => setActivePage('contact')} 
-                  className="hover:text-gray-300"
-                >
+                <button onClick={() => scrollToSection('contact')} className="w-full text-left py-2 md:py-0 hover:text-gray-300">
                   Contact
                 </button>
               </li>
-              <li>
-                <button 
-                  onClick={() => setActivePage('addUser')} 
-                  className="hover:text-gray-300"
-                >
-                  Add User
-                </button>
+              <li className="md:ml-4">
+                {user || devMode ? (
+                  <UserMenu user={user} devMode={devMode} />
+                ) : (
+                  <button
+                    onClick={() => setShowAuth(true)}
+                    className="w-full md:w-auto bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md transition-colors flex items-center justify-center"
+                  >
+                    Login
+                  </button>
+                )}
               </li>
-
             </ul>
-            {user ? (
-              <UserMenu user={user} />
-            ) : (
-              <button
-                onClick={() => setShowAuth(true)}
-                className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md transition-colors"
-              >
-                <UserCircle2 size={20} />
-                <span>Login</span>
-              </button>
-            )}
           </nav>
         </div>
       </header>
 
-      {(activePage === 'image' || activePage === 'chat') && (
-        <nav className="bg-gray-100 shadow-md">
-          <div className="container mx-auto px-4 py-2">
-            <ul className="flex space-x-4">
-              <li>
+      <main className="flex-grow pt-16">
+        <section id="tools" className="min-h-screen">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-500 to-green-500 text-white py-20">
+            <div className="container mx-auto px-4 text-center">
+              <h1 className="text-4xl font-bold mb-4">The Koko App AI Tools</h1>
+              <p className="text-xl">Transform your ideas into stunning visuals and engage in intelligent conversations</p>
+            </div>
+          </div>
+
+          {(user || devMode) && (
+            <div className="container mx-auto px-4 py-8">
+              <div className="flex flex-wrap justify-center gap-4 mb-8">
                 <button
-                  onClick={() => setActivePage('image')}
-                  className={`flex items-center px-3 py-2 rounded-md ${activePage === 'image' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'}`}
+                  onClick={() => setActiveTool('image')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'image' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
                 >
                   <ImageIcon className="mr-2" size={20} />
                   Image Generator
                 </button>
-              </li>
-              <li>
                 <button
-                  onClick={() => setActivePage('chat')}
-                  className={`flex items-center px-3 py-2 rounded-md ${activePage === 'chat' ? 'bg-blue-500 text-white' : 'text-gray-700 hover:bg-gray-200'}`}
+                  onClick={() => setActiveTool('chat')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'chat' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
                 >
                   <MessageSquare className="mr-2" size={20} />
                   ChatBot
                 </button>
-              </li>
-              
-            </ul>
-          </div>
-        </nav>
-      )}
+                <button
+                  onClick={() => setActiveTool('users')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'users' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <UserPlus className="mr-2" size={20} />
+                  Manage Users
+                </button>
+                <button
+                  onClick={() => setActiveTool('presentation')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'presentation' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <FileSpreadsheet className="mr-2" size={20} />
+                  Presentation Viewer
+                </button>
+              </div>
+            </div>
+          )}
 
-      <main className="flex-grow">
-        <div className="bg-gradient-to-r from-blue-600 via-purple-500 to-green-500 text-white py-20">
-          <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold mb-4">The Koko App AI Tools</h1>
-            <p className="text-xl">Transform your ideas into stunning visuals and engage in intelligent conversations</p>
+          <div className="container mx-auto px-4 py-8">
+            {renderTool()}
           </div>
-        </div>
+        </section>
 
-        <div className="container mx-auto px-4 py-12">
-          {renderContent()}
-        </div>
+        <section id="pricing" className="min-h-screen bg-gray-50 py-20">
+          <Subscription />
+        </section>
+
+        <section id="about" className="min-h-screen py-20">
+          <About />
+        </section>
+
+        <section id="contact" className="min-h-screen bg-gray-50 py-20">
+          <Contact />
+        </section>
       </main>
 
       <footer className="bg-gray-800 text-white py-6">

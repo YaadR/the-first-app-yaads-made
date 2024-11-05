@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
 interface UserMenuProps {
-  user: User;
+  user: User | null;
+  devMode?: boolean;
 }
 
-function UserMenu({ user }: UserMenuProps) {
+function UserMenu({ user, devMode = false }: UserMenuProps) {
   const [showLogout, setShowLogout] = useState(false);
 
   const getUserInitials = (name: string) => {
@@ -35,11 +36,15 @@ function UserMenu({ user }: UserMenuProps) {
         onMouseEnter={() => setShowLogout(true)}
         onMouseLeave={() => setShowLogout(false)}
       >
-        <span className="font-medium">
-          {getUserInitials(user.displayName || user.email || 'User')}
-        </span>
+        {user ? (
+          <span className="font-medium">
+            {getUserInitials(user.displayName || user.email || 'User')}
+          </span>
+        ) : devMode ? (
+          <UserIcon size={20} />
+        ) : null}
       </div>
-      {showLogout && (
+      {showLogout && user && (
         <div
           className="absolute right-0 mt-2 py-2 w-48 bg-white rounded-md shadow-xl z-50"
           onMouseEnter={() => setShowLogout(true)}
