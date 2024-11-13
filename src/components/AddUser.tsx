@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
-import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Pencil, Trash2, Save, X, Plus, RefreshCw } from 'lucide-react';
 
 interface User {
@@ -9,7 +9,6 @@ interface User {
   phoneNumber: string;
   email: string;
   role: string;
-  organization: string;
   organizationId: string;
   type: string;
 }
@@ -25,33 +24,35 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     displayName: '',
     phoneNumber: '',
     email: '',
-    role: '',
-    organization: '',
-    type: ''
+    role: 'employee', // Default role
+    type: 'user' // Default type
   });
 
-  const fetchOrganizationId = async () => {
+  const fetchOrganizationInfo = async () => {
     if (!auth.currentUser && !devMode) return null;
     
     try {
-      const userDocRef = doc(db, 'users', auth.currentUser?.uid || 'dev-mode-user');
+      const userDocRef = doc(db, 'managers', auth.currentUser?.uid || 'dev-mode-user');
       const userDoc = await getDoc(userDocRef);
       
       if (userDoc.exists()) {
-        return userDoc.data()?.organizationId;
+        const userData = userDoc.data();
+        setOrganizationId(userData.organizationId);
+        setOrganizationName(userData.organizationName);
+        return userData.organizationId;
       } else if (devMode) {
-        // For dev mode, create a mock organization ID
         return 'dev-org-id';
       }
       return null;
     } catch (error) {
-      console.error('Error fetching organization ID:', error);
-      setError('Failed to fetch organization ID. Please try again.');
+      console.error('Error fetching organization info:', error);
+      setError('Failed to fetch organization info. Please try again.');
       return null;
     }
   };
@@ -63,13 +64,11 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       setRefreshing(true);
       setError(null);
 
-      const orgId = organizationId || await fetchOrganizationId();
+      const orgId = organizationId || await fetchOrganizationInfo();
       if (!orgId) {
         setError('No organization found. Please set up your organization first.');
         return;
       }
-
-      setOrganizationId(orgId);
 
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('organizationId', '==', orgId));
@@ -100,7 +99,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!organizationId) {
+    if (!organizationId || !organizationName) {
       setError('No organization found. Please set up your organization first.');
       return;
     }
@@ -109,20 +108,29 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       setError(null);
       const newUser = {
         ...formData,
+        role: 'employee',
+        type: 'user',
         organizationId,
+        organizationName,
         createdAt: new Date().toISOString(),
         createdBy: auth.currentUser?.uid || 'dev-mode-user'
       };
 
-      const docRef = await addDoc(collection(db, 'users'), newUser);
+      // Add user to users collection
+      const userRef = await addDoc(collection(db, 'users'), newUser);
+
+      // Update organization's users array
+      const orgRef = doc(db, 'organizations', organizationId);
+      await updateDoc(orgRef, {
+        users: arrayUnion(userRef.id)
+      });
       
       setFormData({
         displayName: '',
         phoneNumber: '',
         email: '',
-        role: '',
-        organization: '',
-        type: ''
+        role: 'employee',
+        type: 'user'
       });
       setShowForm(false);
       
@@ -139,7 +147,18 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
     try {
       setError(null);
+      
+      // Remove user from users collection
       await deleteDoc(doc(db, 'users', userId));
+
+      // Remove user from organization's users array
+      if (organizationId) {
+        const orgRef = doc(db, 'organizations', organizationId);
+        await updateDoc(orgRef, {
+          users: arrayRemove(userId)
+        });
+      }
+
       fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -165,7 +184,6 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
         phoneNumber: user.phoneNumber,
         email: user.email,
         role: user.role,
-        organization: user.organization,
         type: user.type
       });
     }
@@ -237,24 +255,6 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
               className="border rounded-md px-3 py-2"
               required
             />
-            <input
-              type="text"
-              name="role"
-              placeholder="Role"
-              value={formData.role}
-              onChange={handleChange}
-              className="border rounded-md px-3 py-2"
-              required
-            />
-            <input
-              type="text"
-              name="type"
-              placeholder="Type"
-              value={formData.type}
-              onChange={handleChange}
-              className="border rounded-md px-3 py-2"
-              required
-            />
             <div className="md:col-span-2 flex justify-end space-x-2">
               <button
                 type="button"
@@ -315,30 +315,10 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingUser === user.id ? (
-                    <input
-                      type="text"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  ) : (
-                    user.role
-                  )}
+                  {user.role}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {editingUser === user.id ? (
-                    <input
-                      type="text"
-                      name="type"
-                      value={formData.type}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                  ) : (
-                    user.type
-                  )}
+                  {user.type}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button

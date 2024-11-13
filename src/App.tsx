@@ -16,16 +16,16 @@ import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 
-// Check if OpenAI API key is present
+// Initialize OpenAI only if API key is present
 const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-if (!openaiApiKey) {
-  console.warn('OpenAI API key is missing. Please check your .env file.');
-}
+let openai: OpenAI | null = null;
 
-const openai = new OpenAI({
-  apiKey: openaiApiKey,
-  dangerouslyAllowBrowser: true
-});
+if (openaiApiKey) {
+  openai = new OpenAI({
+    apiKey: openaiApiKey,
+    dangerouslyAllowBrowser: true
+  });
+}
 
 function App() {
   const [activeTool, setActiveTool] = useState('image');
@@ -101,23 +101,6 @@ function App() {
         return null;
     }
   }, [activeTool, showRegistration, user, devMode]);
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-red-50">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
-          <p className="text-gray-700">{error}</p>
-          <button
-            onClick={() => setError(null)}
-            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Dismiss
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col min-h-screen">

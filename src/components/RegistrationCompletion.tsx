@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db, auth } from '../config/firebase';
-import { doc, setDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, collection, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Building2, Mail, Phone, User, MapPin } from 'lucide-react';
 
 function RegistrationCompletion() {
@@ -10,7 +10,8 @@ function RegistrationCompletion() {
       name: '',
       address: '',
       email: '',
-      phone: ''
+      phone: '',
+      users: [] // Array of user IDs
     },
     user: {
       name: '',
@@ -32,21 +33,38 @@ function RegistrationCompletion() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) return;
     setLoading(true);
 
     try {
-      // Save organization
+      // Create organization
       const orgRef = doc(collection(db, 'organizations'));
-      await setDoc(orgRef, {
+      const orgData = {
         ...formData.organization,
+        users: [auth.currentUser.uid], // Initialize with manager's ID
         createdAt: new Date(),
-        createdBy: auth.currentUser?.uid
+        createdBy: auth.currentUser.uid
+      };
+      await setDoc(orgRef, orgData);
+
+      // Save user as manager
+      const managerRef = doc(collection(db, 'managers'), auth.currentUser.uid);
+      await setDoc(managerRef, {
+        ...formData.user,
+        uid: auth.currentUser.uid,
+        role: 'manager',
+        organizationId: orgRef.id,
+        organizationName: formData.organization.name,
+        createdAt: new Date()
       });
 
-      // Save user with organization reference
-      const userRef = doc(collection(db, 'users'), auth.currentUser?.uid);
+      // Also add to users collection for consistency
+      const userRef = doc(collection(db, 'users'), auth.currentUser.uid);
       await setDoc(userRef, {
         ...formData.user,
+        uid: auth.currentUser.uid,
+        role: 'manager',
+        type: 'manager',
         organizationId: orgRef.id,
         organizationName: formData.organization.name,
         createdAt: new Date()

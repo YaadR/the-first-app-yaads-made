@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { OpenAI } from 'openai';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, AlertCircle } from 'lucide-react';
 
 interface ChatBotProps {
-  openai: OpenAI;
+  openai: OpenAI | null;
 }
 
 interface Message {
@@ -18,6 +18,10 @@ function ChatBot({ openai }: ChatBotProps) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!openai) {
+      return;
+    }
+    
     if (!input.trim()) return;
 
     const userMessage: Message = { role: 'user', content: input };
@@ -46,6 +50,21 @@ function ChatBot({ openai }: ChatBotProps) {
       setLoading(false);
     }
   };
+
+  if (!openai) {
+    return (
+      <div className="bg-yellow-50 p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+        <div className="flex items-center text-yellow-800 mb-4">
+          <AlertCircle className="mr-2" size={24} />
+          <h3 className="font-semibold">AI Features Disabled</h3>
+        </div>
+        <p className="text-yellow-700">
+          Chat functionality is currently unavailable because the OpenAI API key is not configured.
+          Please contact the administrator to enable this feature.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
