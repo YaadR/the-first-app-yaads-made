@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { OpenAI } from 'openai';
-import { ImageIcon, Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
-import ImageGenerator from './components/ImageGenerator';
+import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
 import ChatBot from './components/ChatBot';
 import Auth from './components/Auth/Auth';
 import RegistrationCompletion from './components/RegistrationCompletion';
@@ -15,26 +13,15 @@ import { auth } from './config/firebase';
 import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
-
-// Initialize OpenAI only if API key is present
-const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
-let openai: OpenAI | null = null;
-
-if (openaiApiKey) {
-  openai = new OpenAI({
-    apiKey: openaiApiKey,
-    dangerouslyAllowBrowser: true
-  });
-}
+import ComponentsPage from './components/ComponentsPage';
 
 function App() {
-  const [activeTool, setActiveTool] = useState('image');
+  const [activeTool, setActiveTool] = useState('interact');
   const [showAuth, setShowAuth] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const checkUserRegistration = useCallback(async (user: User) => {
     try {
@@ -44,7 +31,6 @@ function App() {
       }
     } catch (err) {
       console.error('Error checking user registration:', err);
-      setError('Failed to check user registration status');
     }
   }, []);
 
@@ -89,10 +75,10 @@ function App() {
     }
 
     switch (activeTool) {
-      case 'image':
-        return <ImageGenerator openai={openai} />;
+      case 'interact':
+        return <ComponentsPage />;
       case 'chat':
-        return <ChatBot openai={openai} />;
+        return <ChatBot openai={null} />;
       case 'users':
         return <AddUser devMode={devMode} />;
       case 'presentation':
@@ -108,7 +94,7 @@ function App() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center">
             <Code2 className="mr-2" size={24} />
-            <span className="text-xl font-bold">The Koko App</span>
+            <span className="text-xl font-bold">LeannOne</span>
           </div>
           
           <div className="flex items-center space-x-4">
@@ -174,8 +160,8 @@ function App() {
         <section id="tools" className="min-h-screen">
           <div className="bg-gradient-to-r from-blue-600 via-purple-500 to-green-500 text-white py-20">
             <div className="container mx-auto px-4 text-center">
-              <h1 className="text-4xl font-bold mb-4">The Koko App AI Tools</h1>
-              <p className="text-xl">Transform your ideas into stunning visuals and engage in intelligent conversations</p>
+              <h1 className="text-4xl font-bold mb-4">LeannOne Tools</h1>
+              <p className="text-xl">Connect with your team through WhatsApp and manage your organization</p>
             </div>
           </div>
 
@@ -183,13 +169,13 @@ function App() {
             <div className="container mx-auto px-4 py-8">
               <div className="flex flex-wrap justify-center gap-4 mb-8">
                 <button
-                  onClick={() => setActiveTool('image')}
+                  onClick={() => setActiveTool('interact')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'image' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'interact' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
-                  <ImageIcon className="mr-2" size={20} />
-                  Image Generator
+                  <UserPlus className="mr-2" size={20} />
+                  Interact
                 </button>
                 <button
                   onClick={() => setActiveTool('chat')}
@@ -242,8 +228,8 @@ function App() {
 
       <footer className="bg-gray-800 text-white py-6">
         <div className="container mx-auto px-4 text-center">
-          <p>&copy; 2024 The Koko App. All rights reserved.</p>
-          <p className="mt-2 text-sm text-gray-400">Powered by DALL-E 3 and GPT-4 from OpenAI</p>
+          <p>&copy; 2024 LeannOne. All rights reserved.</p>
+          <p className="mt-2 text-sm text-gray-400">Powered by WhatsApp Business API</p>
         </div>
       </footer>
 

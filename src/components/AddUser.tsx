@@ -6,7 +6,7 @@ import { Pencil, Trash2, Save, X, Plus, RefreshCw } from 'lucide-react';
 interface User {
   id: string;
   displayName: string;
-  phoneNumber: string;
+  phone: string;
   email: string;
   role: string;
   organizationId: string;
@@ -28,7 +28,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
   const [formData, setFormData] = useState({
     displayName: '',
-    phoneNumber: '',
+    phone: '',
     email: '',
     role: 'employee', // Default role
     type: 'user' // Default type
@@ -127,7 +127,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       
       setFormData({
         displayName: '',
-        phoneNumber: '',
+        phone: '',
         email: '',
         role: 'employee',
         type: 'user'
@@ -181,7 +181,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       setEditingUser(user.id);
       setFormData({
         displayName: user.displayName,
-        phoneNumber: user.phoneNumber,
+        phone: user.phone,
         email: user.email,
         role: user.role,
         type: user.type
@@ -239,9 +239,9 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
             />
             <input
               type="tel"
-              name="phoneNumber"
+              name="phone"
               placeholder="Phone Number"
-              value={formData.phoneNumber}
+              value={formData.phone}
               onChange={handleChange}
               className="border rounded-md px-3 py-2"
               required

@@ -31,3 +31,4 @@ dist-ssr
 .env.production.local
 diff.txt
 TODO.md
+.env.example

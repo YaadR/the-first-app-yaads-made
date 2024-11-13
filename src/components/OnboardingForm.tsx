@@ -12,7 +12,7 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
   const [formData, setFormData] = useState({
     // User data
     displayName: '',
-    phoneNumber: '',
+    phone: '',
     role: '',
     // Organization data
     orgName: '',
@@ -50,7 +50,7 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
       await setDoc(doc(db, 'users', auth.currentUser.uid), {
         displayName: formData.displayName,
         email: auth.currentUser.email,
-        phoneNumber: formData.phoneNumber,
+        phone: formData.phone,
         role: formData.role,
         organization: formData.orgName,
         createdAt: new Date().toISOString()
@@ -92,8 +92,8 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
                   <label className="block text-sm font-medium text-gray-700">Phone Number</label>
                   <input
                     type="tel"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
+                    name="phone"
+                    value={formData.phone}
                     onChange={handleChange}
                     required
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
