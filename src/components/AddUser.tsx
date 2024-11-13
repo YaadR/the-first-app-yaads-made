@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
-import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { Pencil, Trash2, Save, X, Plus, RefreshCw } from 'lucide-react';
 
 interface User {
@@ -23,6 +23,9 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     displayName: '',
     phoneNumber: '',
@@ -32,27 +35,55 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
     type: ''
   });
 
+  const fetchOrganizationId = async () => {
+    if (!auth.currentUser && !devMode) return null;
+    
+    try {
+      const userDocRef = doc(db, 'users', auth.currentUser?.uid || 'dev-mode-user');
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        return userDoc.data()?.organizationId;
+      } else if (devMode) {
+        // For dev mode, create a mock organization ID
+        return 'dev-org-id';
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching organization ID:', error);
+      setError('Failed to fetch organization ID. Please try again.');
+      return null;
+    }
+  };
+
   const fetchUsers = async () => {
     if (!auth.currentUser && !devMode) return;
     
     try {
       setRefreshing(true);
-      const userDoc = await getDocs(doc(db, 'users', auth.currentUser?.uid || ''));
-      const organizationId = userDoc.data()?.organizationId;
+      setError(null);
 
-      const q = query(
-        collection(db, 'users'),
-        where('organizationId', '==', organizationId)
-      );
+      const orgId = organizationId || await fetchOrganizationId();
+      if (!orgId) {
+        setError('No organization found. Please set up your organization first.');
+        return;
+      }
+
+      setOrganizationId(orgId);
+
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('organizationId', '==', orgId));
       const querySnapshot = await getDocs(q);
+      
       const fetchedUsers = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data()
       } as User));
+
       setUsers(fetchedUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
-      alert('Failed to fetch users.');
+      setError('Failed to fetch users. Please try again.');
     } finally {
       setRefreshing(false);
     }
@@ -69,12 +100,22 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!organizationId) {
+      setError('No organization found. Please set up your organization first.');
+      return;
+    }
+
     try {
-      await addDoc(collection(db, 'users'), {
+      setError(null);
+      const newUser = {
         ...formData,
-        organizationId: auth.currentUser?.organizationId,
-        createdAt: new Date()
-      });
+        organizationId,
+        createdAt: new Date().toISOString(),
+        createdBy: auth.currentUser?.uid || 'dev-mode-user'
+      };
+
+      const docRef = await addDoc(collection(db, 'users'), newUser);
+      
       setFormData({
         displayName: '',
         phoneNumber: '',
@@ -84,38 +125,49 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
         type: ''
       });
       setShowForm(false);
+      
+      // Refresh the users list
       fetchUsers();
     } catch (error) {
       console.error('Error adding user:', error);
-      alert('Failed to add user.');
+      setError('Failed to add user. Please try again.');
     }
   };
 
   const handleDelete = async (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        await deleteDoc(doc(db, 'users', userId));
-        fetchUsers();
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('Failed to delete user.');
-      }
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+
+    try {
+      setError(null);
+      await deleteDoc(doc(db, 'users', userId));
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError('Failed to delete user. Please try again.');
     }
   };
 
   const handleEdit = async (user: User) => {
     if (editingUser === user.id) {
       try {
+        setError(null);
         await updateDoc(doc(db, 'users', user.id), formData);
         setEditingUser(null);
         fetchUsers();
       } catch (error) {
         console.error('Error updating user:', error);
-        alert('Failed to update user.');
+        setError('Failed to update user. Please try again.');
       }
     } else {
       setEditingUser(user.id);
-      setFormData({ ...user });
+      setFormData({
+        displayName: user.displayName,
+        phoneNumber: user.phoneNumber,
+        email: user.email,
+        role: user.role,
+        organization: user.organization,
+        type: user.type
+      });
     }
   };
 
@@ -129,6 +181,12 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
   return (
     <div className="container mx-auto px-4">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <h2 className="text-2xl font-bold">Manage Users</h2>
@@ -162,7 +220,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
               required
             />
             <input
-              type="text"
+              type="tel"
               name="phoneNumber"
               placeholder="Phone Number"
               value={formData.phoneNumber}

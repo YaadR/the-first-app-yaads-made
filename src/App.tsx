@@ -16,8 +16,14 @@ import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 
+// Check if OpenAI API key is present
+const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+if (!openaiApiKey) {
+  console.warn('OpenAI API key is missing. Please check your .env file.');
+}
+
 const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  apiKey: openaiApiKey,
   dangerouslyAllowBrowser: true
 });
 

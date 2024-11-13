@@ -1,31 +1,25 @@
 import { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
-import { stripePromise, createCheckoutSession } from '../lib/stripe';
+import PaymentPage from './Payment/PaymentPage';
 
 interface Plan {
+  id: string;
   name: string;
   monthlyPrice: number;
   yearlyPrice: number;
   features: string[];
-  stripePriceId: {
-    monthly: string;
-    yearly: string;
-  };
 }
 
 function Subscription() {
   const [isYearly, setIsYearly] = useState(false);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
 
   const plans: Plan[] = [
     {
+      id: 'basic',
       name: 'Basic',
       monthlyPrice: 9.99,
       yearlyPrice: 99.99,
-      stripePriceId: {
-        monthly: 'price_basic_monthly',
-        yearly: 'price_basic_yearly'
-      },
       features: [
         'Access to Image Generator',
         'Basic Chat Support',
@@ -34,13 +28,10 @@ function Subscription() {
       ]
     },
     {
+      id: 'pro',
       name: 'Pro',
       monthlyPrice: 19.99,
       yearlyPrice: 199.99,
-      stripePriceId: {
-        monthly: 'price_pro_monthly',
-        yearly: 'price_pro_yearly'
-      },
       features: [
         'Everything in Basic',
         'Access to ChatBot',
@@ -50,13 +41,10 @@ function Subscription() {
       ]
     },
     {
+      id: 'enterprise',
       name: 'Enterprise',
       monthlyPrice: 49.99,
       yearlyPrice: 499.99,
-      stripePriceId: {
-        monthly: 'price_enterprise_monthly',
-        yearly: 'price_enterprise_yearly'
-      },
       features: [
         'Everything in Pro',
         'Unlimited Images',
@@ -68,32 +56,18 @@ function Subscription() {
     }
   ];
 
-  const handleSubscribe = async (plan: Plan) => {
-    try {
-      setLoading(plan.name);
-      const stripe = await stripePromise;
-      
-      if (!stripe) {
-        throw new Error('Stripe failed to initialize');
-      }
-
-      const priceId = isYearly ? plan.stripePriceId.yearly : plan.stripePriceId.monthly;
-      const session = await createCheckoutSession(priceId);
-
-      const result = await stripe.redirectToCheckout({
-        sessionId: session.id
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Something went wrong. Please try again.');
-    } finally {
-      setLoading(null);
-    }
-  };
+  if (selectedPlan) {
+    return (
+      <PaymentPage 
+        plan={{
+          name: selectedPlan.name,
+          price: isYearly ? selectedPlan.yearlyPrice : selectedPlan.monthlyPrice,
+          interval: isYearly ? 'year' : 'month'
+        }}
+        onBack={() => setSelectedPlan(null)}
+      />
+    );
+  }
 
   return (
     <div className="py-12 px-4">
@@ -119,7 +93,7 @@ function Subscription() {
       <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
         {plans.map((plan) => (
           <div
-            key={plan.name}
+            key={plan.id}
             className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
           >
             <h3 className="text-2xl font-bold mb-4">{plan.name}</h3>
@@ -138,18 +112,10 @@ function Subscription() {
               ))}
             </ul>
             <button
-              onClick={() => handleSubscribe(plan)}
-              disabled={loading === plan.name}
+              onClick={() => setSelectedPlan(plan)}
               className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors flex items-center justify-center"
             >
-              {loading === plan.name ? (
-                <>
-                  <Loader2 className="animate-spin mr-2" size={20} />
-                  Processing...
-                </>
-              ) : (
-                'Get Started'
-              )}
+              Get Started
             </button>
           </div>
         ))}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CreditCard, Calendar, Lock } from 'lucide-react';
 
 interface CreditCardFormProps {
@@ -25,7 +25,21 @@ const CreditCardForm: React.FC<CreditCardFormProps> = ({ onSubmit, loading }) =>
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    let formattedValue = value;
+
+    // Format card number with spaces
+    if (name === 'cardNumber') {
+      formattedValue = value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
+    }
+    // Format expiry date
+    else if (name === 'expiryDate') {
+      formattedValue = value
+        .replace(/\D/g, '')
+        .replace(/(\d{2})(\d)/, '$1/$2')
+        .slice(0, 5);
+    }
+
+    setFormData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   return (
