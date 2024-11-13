@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { Pencil, Trash2, Save, X, Plus } from 'lucide-react';
+import { Pencil, Trash2, Save, X, Plus, RefreshCw } from 'lucide-react';
 
 interface User {
   id: string;
@@ -10,6 +10,7 @@ interface User {
   email: string;
   role: string;
   organization: string;
+  organizationId: string;
   type: string;
 }
 
@@ -21,6 +22,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [formData, setFormData] = useState({
     displayName: '',
     phoneNumber: '',
@@ -33,16 +35,27 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const fetchUsers = async () => {
     if (!auth.currentUser && !devMode) return;
     
-    const q = query(
-      collection(db, 'users'),
-      where('organization', '==', 'LabVentory')
-    );
-    const querySnapshot = await getDocs(q);
-    const fetchedUsers = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data()
-    } as User));
-    setUsers(fetchedUsers);
+    try {
+      setRefreshing(true);
+      const userDoc = await getDocs(doc(db, 'users', auth.currentUser?.uid || ''));
+      const organizationId = userDoc.data()?.organizationId;
+
+      const q = query(
+        collection(db, 'users'),
+        where('organizationId', '==', organizationId)
+      );
+      const querySnapshot = await getDocs(q);
+      const fetchedUsers = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      } as User));
+      setUsers(fetchedUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      alert('Failed to fetch users.');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -57,7 +70,11 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'users'), formData);
+      await addDoc(collection(db, 'users'), {
+        ...formData,
+        organizationId: auth.currentUser?.organizationId,
+        createdAt: new Date()
+      });
       setFormData({
         displayName: '',
         phoneNumber: '',
@@ -113,7 +130,16 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   return (
     <div className="container mx-auto px-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Manage Users</h2>
+        <div className="flex items-center space-x-4">
+          <h2 className="text-2xl font-bold">Manage Users</h2>
+          <button
+            onClick={fetchUsers}
+            className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-gray-900 focus:outline-none"
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
         <button
           onClick={() => setShowForm(!showForm)}
           className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex items-center"
@@ -164,15 +190,6 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
             />
             <input
               type="text"
-              name="organization"
-              placeholder="Organization"
-              value={formData.organization}
-              onChange={handleChange}
-              className="border rounded-md px-3 py-2"
-              required
-            />
-            <input
-              type="text"
               name="type"
               placeholder="Type"
               value={formData.type}
@@ -206,7 +223,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -256,13 +273,13 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
                   {editingUser === user.id ? (
                     <input
                       type="text"
-                      name="organization"
-                      value={formData.organization}
+                      name="type"
+                      value={formData.type}
                       onChange={handleChange}
                       className="border rounded px-2 py-1 w-full"
                     />
                   ) : (
-                    user.organization
+                    user.type
                   )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

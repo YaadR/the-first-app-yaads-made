@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { OpenAI } from 'openai';
 import { ImageIcon, Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
 import ImageGenerator from './components/ImageGenerator';
 import ChatBot from './components/ChatBot';
 import Auth from './components/Auth/Auth';
+import RegistrationCompletion from './components/RegistrationCompletion';
 import Subscription from './components/Subscription';
 import About from './components/About';
 import Contact from './components/Contact';
@@ -12,6 +13,8 @@ import PresentationViewer from './components/PresentationViewer';
 import UserMenu from './components/UserMenu';
 import { auth } from './config/firebase';
 import { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './config/firebase';
 
 const openai = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
@@ -21,26 +24,50 @@ const openai = new OpenAI({
 function App() {
   const [activeTool, setActiveTool] = useState('image');
   const [showAuth, setShowAuth] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
+  const checkUserRegistration = useCallback(async (user: User) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        setShowRegistration(true);
+      }
+    } catch (err) {
+      console.error('Error checking user registration:', err);
+      setError('Failed to check user registration status');
+    }
   }, []);
 
-  const scrollToSection = (id: string) => {
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      setUser(user);
+      if (user) {
+        await checkUserRegistration(user);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [checkUserRegistration]);
+
+  const scrollToSection = useCallback((id: string) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
     }
     setMenuOpen(false);
-  };
+  }, []);
 
-  const renderTool = () => {
+  const renderTool = useCallback(() => {
+    if (showRegistration) {
+      return <RegistrationCompletion />;
+    }
+
     if (!user && !devMode) {
       return (
         <div className="text-center p-8">
@@ -67,7 +94,24 @@ function App() {
       default:
         return null;
     }
-  };
+  }, [activeTool, showRegistration, user, devMode]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-red-50">
+        <div className="bg-white p-8 rounded-lg shadow-md">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Error</h2>
+          <p className="text-gray-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
