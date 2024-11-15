@@ -30,8 +30,8 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
     displayName: '',
     phone: '',
     email: '',
-    role: 'employee', // Default role
-    type: 'user' // Default type
+    role: 'employee',
+    type: 'user'
   });
 
   const fetchOrganizationInfo = async () => {
@@ -77,7 +77,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       const fetchedUsers = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data()
-      } as User));
+      })) as User[];
 
       setUsers(fetchedUsers);
     } catch (error) {
@@ -108,18 +108,13 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       setError(null);
       const newUser = {
         ...formData,
-        role: 'employee',
-        type: 'user',
         organizationId,
         organizationName,
         createdAt: new Date().toISOString(),
         createdBy: auth.currentUser?.uid || 'dev-mode-user'
       };
 
-      // Add user to users collection
       const userRef = await addDoc(collection(db, 'users'), newUser);
-
-      // Update organization's users array
       const orgRef = doc(db, 'organizations', organizationId);
       await updateDoc(orgRef, {
         users: arrayUnion(userRef.id)
@@ -134,7 +129,6 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       });
       setShowForm(false);
       
-      // Refresh the users list
       fetchUsers();
     } catch (error) {
       console.error('Error adding user:', error);
@@ -142,16 +136,20 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
     }
   };
 
-  const handleDelete = async (userId: string) => {
+  const handleDelete = async (userId: string, userRole: string, userType: string) => {
+    // Prevent deletion of managers/admins
+    if (userRole === 'manager' || userRole === 'admin' || 
+        userType === 'manager' || userType === 'admin') {
+      setError('Cannot delete manager or admin users');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
       setError(null);
-      
-      // Remove user from users collection
       await deleteDoc(doc(db, 'users', userId));
 
-      // Remove user from organization's users array
       if (organizationId) {
         const orgRef = doc(db, 'organizations', organizationId);
         await updateDoc(orgRef, {
@@ -167,6 +165,13 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   };
 
   const handleEdit = async (user: User) => {
+    // Prevent editing role/type for managers/admins
+    if (user.role === 'manager' || user.role === 'admin' || 
+        user.type === 'manager' || user.type === 'admin') {
+      setError('Cannot modify manager or admin users');
+      return;
+    }
+
     if (editingUser === user.id) {
       try {
         setError(null);
@@ -321,26 +326,31 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
                   {user.type}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleEdit(user)}
-                    className="text-blue-600 hover:text-blue-900 mr-3"
-                  >
-                    {editingUser === user.id ? <Save size={20} /> : <Pencil size={20} />}
-                  </button>
-                  {editingUser === user.id ? (
-                    <button
-                      onClick={() => setEditingUser(null)}
-                      className="text-gray-600 hover:text-gray-900"
-                    >
-                      <X size={20} />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <Trash2 size={20} />
-                    </button>
+                  {user.role !== 'manager' && user.role !== 'admin' &&
+                   user.type !== 'manager' && user.type !== 'admin' && (
+                    <>
+                      <button
+                        onClick={() => handleEdit(user)}
+                        className="text-blue-600 hover:text-blue-900 mr-3"
+                      >
+                        {editingUser === user.id ? <Save size={20} /> : <Pencil size={20} />}
+                      </button>
+                      {editingUser === user.id ? (
+                        <button
+                          onClick={() => setEditingUser(null)}
+                          className="text-gray-600 hover:text-gray-900"
+                        >
+                          <X size={20} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleDelete(user.id, user.role, user.type)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </td>
               </tr>
