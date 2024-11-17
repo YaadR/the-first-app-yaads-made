@@ -1,3 +1,4 @@
+//PayPalButton.tsx
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 

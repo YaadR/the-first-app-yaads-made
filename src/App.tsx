@@ -1,3 +1,4 @@
+//App.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { OpenAI } from 'openai';
 import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
