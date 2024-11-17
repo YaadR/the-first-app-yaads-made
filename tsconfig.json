@@ -26,6 +26,9 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    "src/types/paypal.d.ts"  // or wherever your declaration file is located
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
