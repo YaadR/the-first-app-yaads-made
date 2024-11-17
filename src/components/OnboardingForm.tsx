@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db, auth } from '../config/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { Building2, Mail, Phone, Globe, MapPin } from 'lucide-react';
+import { Building2} from 'lucide-react';
 
 interface OnboardingFormProps {
   onComplete: () => void;

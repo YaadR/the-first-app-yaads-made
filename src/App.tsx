@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-//import { OpenAI } from 'openai';
+import { OpenAI } from 'openai';
 import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
 import ChatBot from './components/ChatBot';
 import Auth from './components/Auth/Auth';
@@ -23,7 +23,11 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
-  //const openai = new OpenAI({ apiKey: process.env.VITE_OPENAI_API_KEY || '' });
+  //const openai = new OpenAI({ apiKey: import.meta.env.VITE_OPENAI_API_KEY || '' });
+  const openai = new OpenAI({ 
+    apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
+    dangerouslyAllowBrowser: true
+  });
 
   const checkUserRegistration = useCallback(async (user: User) => {
     try {
@@ -80,7 +84,7 @@ function App() {
       case 'interact':
         return <ComponentsPage />;
       case 'chat':
-        return <ChatBot/>; // openai={openai} />;
+        return <ChatBot openai={openai} />;
       case 'users':
         return <AddUser devMode={devMode} />;
       case 'presentation':
