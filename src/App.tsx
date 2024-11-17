@@ -1,7 +1,6 @@
-//App.tsx
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { OpenAI } from 'openai';
-import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight, Building2 } from 'lucide-react';
 import ChatBot from './components/ChatBot';
 import Auth from './components/Auth/Auth';
 import RegistrationCompletion from './components/RegistrationCompletion';
@@ -16,15 +15,15 @@ import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config/firebase';
 import ComponentsPage from './components/ComponentsPage';
+import OrganizationSettings from './components/OrganizationSettings';
 
 function App() {
-  const [activeTool, setActiveTool] = useState('interact');
+  const [activeTool, setActiveTool] = useState('organization');
   const [showAuth, setShowAuth] = useState(false);
   const [showRegistration, setShowRegistration] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [devMode, setDevMode] = useState(false);
-  //const openai = new OpenAI({ apiKey: import.meta.env.VITE_OPENAI_API_KEY || '' });
   const openai = new OpenAI({ 
     apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
     dangerouslyAllowBrowser: true
@@ -82,6 +81,8 @@ function App() {
     }
 
     switch (activeTool) {
+      case 'organization':
+        return <OrganizationSettings />;
       case 'interact':
         return <ComponentsPage />;
       case 'chat':
@@ -93,7 +94,7 @@ function App() {
       default:
         return null;
     }
-  }, [activeTool, showRegistration, user, devMode]);
+  }, [activeTool, showRegistration, user, devMode, openai]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -122,6 +123,10 @@ function App() {
                 {menuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </div>
+
+            {(user || devMode) && (
+              <UserMenu user={user} devMode={devMode} />
+            )}
           </div>
 
           <nav className={`${menuOpen ? 'block' : 'hidden'} md:block absolute md:relative top-full left-0 w-full md:w-auto bg-gray-800 md:bg-transparent`}>
@@ -146,18 +151,16 @@ function App() {
                   Contact
                 </button>
               </li>
-              <li className="md:ml-4">
-                {user || devMode ? (
-                  <UserMenu user={user} devMode={devMode} />
-                ) : (
+              {!user && !devMode && (
+                <li className="md:ml-4">
                   <button
                     onClick={() => setShowAuth(true)}
                     className="w-full md:w-auto bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md transition-colors flex items-center justify-center"
                   >
                     Login
                   </button>
-                )}
-              </li>
+                </li>
+              )}
             </ul>
           </nav>
         </div>
@@ -175,6 +178,15 @@ function App() {
           {(user || devMode) && (
             <div className="container mx-auto px-4 py-8">
               <div className="flex flex-wrap justify-center gap-4 mb-8">
+                <button
+                  onClick={() => setActiveTool('organization')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'organization' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <Building2 className="mr-2" size={20} />
+                  Organization
+                </button>
                 <button
                   onClick={() => setActiveTool('interact')}
                   className={`flex items-center px-4 py-2 rounded-md ${

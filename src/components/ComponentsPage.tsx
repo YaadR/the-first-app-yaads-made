@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { MessageSquare, Loader2, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface User {
@@ -18,18 +18,20 @@ function ComponentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<string | null>(null);
   const [useSignal, setUseSignal] = useState(false);
+  const [organizationData, setOrganizationData] = useState<any>(null);
 
   useEffect(() => {
-    fetchUsers();
+    fetchOrganizationAndUsers();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchOrganizationAndUsers = async () => {
     if (!auth.currentUser) return;
 
     try {
       setLoading(true);
       setError(null);
 
+      // Get manager's organization
       const managerDoc = await getDocs(
         query(collection(db, 'managers'), 
         where('uid', '==', auth.currentUser.uid))
@@ -42,6 +44,15 @@ function ComponentsPage() {
 
       const organizationId = managerDoc.docs[0].data().organizationId;
 
+      // Get organization details
+      const orgDoc = await getDoc(doc(db, 'organizations', organizationId));
+      if (orgDoc.exists()) {
+        const orgData = orgDoc.data();
+        setOrganizationData(orgData);
+        setUseSignal(orgData.communicationType === 'signal');
+      }
+
+      // Get users
       const usersSnapshot = await getDocs(
         query(collection(db, 'users'), 
         where('organizationId', '==', organizationId))
@@ -54,14 +65,14 @@ function ComponentsPage() {
 
       setUsers(fetchedUsers);
     } catch (err) {
-      console.error('Error fetching users:', err);
-      setError('Failed to load users');
+      console.error('Error fetching data:', err);
+      setError('Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-
+  
   const sendMessage = async (phone: string, userId: string) => {
     if (!phone) {
       setError('Phone number not found for this user');
@@ -74,6 +85,12 @@ function ComponentsPage() {
         ? '/.netlify/functions/send-signal'
         : '/.netlify/functions/send-whatsapp';
   
+      // Get current date and time in a human-readable format
+      const currentDate = new Date();
+      const dateString = currentDate.toLocaleString(); // This will format the date and time as a string
+
+      const message = `Hello, This is Leann. The time is ${dateString}`;
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -81,7 +98,7 @@ function ComponentsPage() {
         },
         body: JSON.stringify({
           phone: phone.replace(/[^\d+]/g, ''),
-          message: 'Hello, This is Leann.',
+          message: message,
         }),
       });
 
