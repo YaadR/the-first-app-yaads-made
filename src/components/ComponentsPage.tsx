@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import { MessageSquare, Loader2, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface User {
   id: string;
@@ -17,6 +17,7 @@ function ComponentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<string | null>(null);
+  const [useSignal, setUseSignal] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -60,29 +61,42 @@ function ComponentsPage() {
     }
   };
 
-  const sendWhatsAppMessage = async (phone: string, userId: string) => {
+
+  const sendMessage = async (phone: string, userId: string) => {
     if (!phone) {
       setError('Phone number not found for this user');
       return;
     }
-
+  
     setSending(userId);
     try {
-      const response = await fetch('/.netlify/functions/send-whatsapp', {
+      const endpoint = useSignal
+        ? '/.netlify/functions/send-signal'
+        : '/.netlify/functions/send-whatsapp';
+  
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phone: phone.replace(/\D/g, ''),
-          message: 'Hello, This is Leann, how may I help?'
+          phone: phone.replace(/[^\d+]/g, ''),
+          message: 'Hello, This is Leann.',
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
+      // Introduce a delay of 3 seconds to allow the Signal server more time to respond
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
+      // Log the full response for debugging
+      console.log('Full Response:', response);
+  
+      if (!response.ok) {
+        const errorText = await response.text();  // Log the response body
+        console.error('Error response body:', errorText); // This will log the detailed error from the API
+        throw new Error(`Failed to send ${useSignal ? 'Signal' : 'WhatsApp'} message: ${errorText}`);
+      }
+  
       const userCard = document.getElementById(`user-${userId}`);
       if (userCard) {
         userCard.classList.add('bg-green-50');
@@ -92,11 +106,18 @@ function ComponentsPage() {
       }
     } catch (err) {
       console.error('Error sending message:', err);
-      setError('Failed to send message');
+  
+      if (err instanceof Error) {
+        setError(`Failed to send ${useSignal ? 'Signal' : 'WhatsApp'} message: ${err.message}`);
+      } else {
+        setError('An unknown error occurred while sending the message');
+      }
     } finally {
       setSending(null);
     }
   };
+  
+    
 
   if (!auth.currentUser) {
     return (
@@ -125,7 +146,24 @@ function ComponentsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-6">Interact with Your Team</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold">Interact with Your Team</h2>
+        <div className="flex items-center space-x-2">
+          <span className={!useSignal ? 'font-semibold' : ''}>WhatsApp</span>
+          <button
+            onClick={() => setUseSignal(!useSignal)}
+            className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors hover:bg-gray-300"
+            title={`Switch to ${useSignal ? 'WhatsApp' : 'Signal'}`}
+          >
+            {useSignal ? (
+              <ToggleRight className="h-6 w-6 text-blue-500" />
+            ) : (
+              <ToggleLeft className="h-6 w-6 text-gray-500" />
+            )}
+          </button>
+          <span className={useSignal ? 'font-semibold' : ''}>Signal</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {users.map((user) => (
@@ -133,7 +171,7 @@ function ComponentsPage() {
             key={user.id}
             id={`user-${user.id}`}
             className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => sendWhatsAppMessage(user.phone, user.id)}
+            onClick={() => sendMessage(user.phone, user.id)}
           >
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -153,7 +191,7 @@ function ComponentsPage() {
               ) : (
                 <div className="flex items-center justify-center text-green-500">
                   <MessageSquare size={16} className="mr-1" />
-                  <span className="text-sm">Click to message</span>
+                  <span className="text-sm">Click to message via {useSignal ? 'Signal' : 'WhatsApp'}</span>
                 </div>
               )}
             </div>

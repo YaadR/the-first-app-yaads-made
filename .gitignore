@@ -32,3 +32,6 @@ dist-ssr
 diff.txt
 TODO.md
 .env.example
+
+# Local Netlify folder
+.netlify
