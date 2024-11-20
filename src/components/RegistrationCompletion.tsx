@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db, auth } from '../config/firebase';
-import { doc, setDoc, collection, updateDoc, arrayUnion } from 'firebase/firestore';
-import { Building2, Mail, Phone, User, MapPin } from 'lucide-react';
+import { doc, setDoc, collection } from 'firebase/firestore';
+import { Building2, Mail, Phone, User, MapPin, MessageSquare } from 'lucide-react';
 
 function RegistrationCompletion() {
   const [loading, setLoading] = useState(false);
@@ -11,7 +11,8 @@ function RegistrationCompletion() {
       address: '',
       email: '',
       phone: '',
-      users: [] // Array of user IDs
+      users: [], // Array of user IDs
+      communicationType: 'whatsapp' // Default to WhatsApp
     },
     user: {
       name: '',
@@ -21,7 +22,7 @@ function RegistrationCompletion() {
     }
   });
 
-  const handleChange = (section: 'organization' | 'user', field: string, value: string) => {
+  const handleChange = (section: 'organization' | 'user', field: string, value: string | boolean) => {
     setFormData(prev => ({
       ...prev,
       [section]: {
@@ -43,7 +44,9 @@ function RegistrationCompletion() {
         ...formData.organization,
         users: [auth.currentUser.uid], // Initialize with manager's ID
         createdAt: new Date(),
-        createdBy: auth.currentUser.uid
+        createdBy: auth.currentUser.uid,
+        signal: formData.organization.communicationType === 'signal',
+        whatsapp: formData.organization.communicationType === 'whatsapp'
       };
       await setDoc(orgRef, orgData);
 
@@ -147,6 +150,41 @@ function RegistrationCompletion() {
                     className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Communication Method</label>
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="whatsapp"
+                      name="communicationType"
+                      value="whatsapp"
+                      checked={formData.organization.communicationType === 'whatsapp'}
+                      onChange={(e) => handleChange('organization', 'communicationType', e.target.value)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      required
+                    />
+                    <label htmlFor="whatsapp" className="ml-2 block text-sm text-gray-700">
+                      WhatsApp
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="radio"
+                      id="signal"
+                      name="communicationType"
+                      value="signal"
+                      checked={formData.organization.communicationType === 'signal'}
+                      onChange={(e) => handleChange('organization', 'communicationType', e.target.value)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <label htmlFor="signal" className="ml-2 block text-sm text-gray-700">
+                      Signal
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

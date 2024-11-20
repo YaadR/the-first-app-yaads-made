@@ -7,7 +7,7 @@ import {
   GoogleAuthProvider,
   GithubAuthProvider
 } from 'firebase/auth';
-import { Mail, Lock, X, Chrome, Github } from 'lucide-react';
+import { Mail, Lock, X, Chrome, Github, AlertCircle } from 'lucide-react';
 
 interface AuthProps {
   onClose: () => void;
@@ -31,9 +31,22 @@ function Auth({ onClose }: AuthProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
+  const validatePassword = (password: string): boolean => {
+    // Check length between 6 and 20
+    if (password.length < 6 || password.length > 20) return false;
+    
+    // Check if only valid ASCII letters
+    return /^[\x20-\x7E]+$/.test(password);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!validatePassword(password)) {
+      setError('Password must be 6-20 characters long and contain only valid ASCII characters');
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -110,14 +123,22 @@ function Auth({ onClose }: AuthProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your password"
+                placeholder="6-20 characters"
                 required
+                minLength={6}
+                maxLength={20}
               />
             </div>
+            <p className="mt-1 text-sm text-gray-500">
+              Password must be 6-20 characters long using ASCII characters
+            </p>
           </div>
 
           {error && (
-            <p className="text-red-500 text-sm">{error}</p>
+            <div className="flex items-center text-red-500 text-sm">
+              <AlertCircle className="mr-2" size={16} />
+              {error}
+            </div>
           )}
 
           <button

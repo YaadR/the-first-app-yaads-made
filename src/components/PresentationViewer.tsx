@@ -1,39 +1,118 @@
-import React, { useState } from 'react';
-import { FileSpreadsheet, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileSpreadsheet, Save, X, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { google } from 'googleapis';
+
+interface Cell {
+  value: string;
+  isEditing: boolean;
+}
 
 interface Row {
   id: number;
-  cells: string[];
+  cells: Cell[];
 }
 
 const PresentationViewer: React.FC = () => {
   const [url, setUrl] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
-  const [editingCell, setEditingCell] = useState<{ rowId: number; colIndex: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalRows, setTotalRows] = useState(0);
   const rowsPerPage = 20;
 
-  const handleUrlSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock data loading - in a real app, you'd fetch data from the URL
-    const mockData: Row[] = Array.from({ length: 100 }, (_, i) => ({
-      id: i + 1,
-      cells: Array.from({ length: 5 }, (_, j) => `Cell ${i + 1}-${j + 1}`),
-    }));
-    setRows(mockData);
+  const extractSpreadsheetId = (url: string): string | null => {
+    const match = url.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : null;
   };
 
-  const handleCellEdit = (rowId: number, colIndex: number, value: string) => {
-    setRows(rows.map(row => 
-      row.id === rowId 
-        ? { ...row, cells: row.cells.map((cell, i) => i === colIndex ? value : cell) }
-        : row
-    ));
+  const loadSpreadsheetData = async (spreadsheetId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/.netlify/functions/get-spreadsheet?id=${spreadsheetId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch spreadsheet data');
+      }
+
+      const data = await response.json();
+      
+      // Transform the data into our Row format
+      const transformedRows = data.values?.map((row: string[], index: number) => ({
+        id: index,
+        cells: row.map((value) => ({
+          value,
+          isEditing: false,
+        })),
+      })) || [];
+      
+
+      setTotalRows(transformedRows.length);
+      setRows(transformedRows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load spreadsheet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUrlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const spreadsheetId = extractSpreadsheetId(url);
+    if (!spreadsheetId) {
+      setError('Invalid Google Sheets URL');
+      return;
+    }
+    await loadSpreadsheetData(spreadsheetId);
+  };
+
+  const handleCellEdit = (rowId: number, cellIndex: number, value: string) => {
+    setRows(rows.map(row => {
+      if (row.id === rowId) {
+        const newCells = [...row.cells];
+        newCells[cellIndex] = {
+          ...newCells[cellIndex],
+          value
+        };
+        return { ...row, cells: newCells };
+      }
+      return row;
+    }));
+  };
+
+  const toggleCellEdit = (rowId: number, cellIndex: number) => {
+    setRows(rows.map(row => {
+      if (row.id === rowId) {
+        const newCells = row.cells.map((cell, i) => ({
+          ...cell,
+          isEditing: i === cellIndex ? !cell.isEditing : false
+        }));
+        return { ...row, cells: newCells };
+      }
+      return {
+        ...row,
+        cells: row.cells.map(cell => ({ ...cell, isEditing: false }))
+      };
+    }));
+  };
+
+  const saveCell = async (rowId: number, cellIndex: number) => {
+    const cell = rows.find(r => r.id === rowId)?.cells[cellIndex];
+    if (!cell) return;
+
+    try {
+      // Here you would typically make an API call to update the cell in Google Sheets
+      // For now, we'll just update our local state
+      toggleCellEdit(rowId, cellIndex);
+    } catch (err) {
+      setError('Failed to save cell');
+    }
   };
 
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
-  const totalPages = Math.ceil(rows.length / rowsPerPage);
+  const totalPages = Math.ceil(totalRows / rowsPerPage);
   const currentRows = rows.slice(startIndex, endIndex);
 
   return (
@@ -45,7 +124,7 @@ const PresentationViewer: React.FC = () => {
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Document URL
+                Google Sheets URL
               </label>
               <div className="relative">
                 <FileSpreadsheet className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -54,62 +133,65 @@ const PresentationViewer: React.FC = () => {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter OneDrive or Google Drive URL"
+                  placeholder="Paste your Google Sheets URL"
                   required
                 />
               </div>
             </div>
             <button
               type="submit"
-              className="self-end bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600"
+              disabled={loading}
+              className="self-end bg-blue-500 text-white px-6 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50 flex items-center"
             >
-              Load
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin mr-2" size={20} />
+                  Loading...
+                </>
+              ) : (
+                'Load Sheet'
+              )}
             </button>
           </div>
         </form>
+
+        {error && (
+          <div className="mb-4 flex items-center text-red-500">
+            <AlertCircle className="mr-2" size={20} />
+            {error}
+          </div>
+        )}
 
         {rows.length > 0 && (
           <>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <th
-                        key={i}
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
-                        Column {i + 1}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentRows.map((row) => (
                     <tr key={row.id}>
-                      {row.cells.map((cell, colIndex) => (
+                      {row.cells.map((cell, cellIndex) => (
                         <td
-                          key={colIndex}
+                          key={cellIndex}
                           className="px-6 py-4 whitespace-nowrap"
-                          onClick={() => setEditingCell({ rowId: row.id, colIndex })}
+                          onClick={() => !cell.isEditing && toggleCellEdit(row.id, cellIndex)}
                         >
-                          {editingCell?.rowId === row.id && editingCell?.colIndex === colIndex ? (
+                          {cell.isEditing ? (
                             <div className="flex items-center space-x-2">
                               <input
                                 type="text"
-                                value={cell}
-                                onChange={(e) => handleCellEdit(row.id, colIndex, e.target.value)}
+                                value={cell.value}
+                                onChange={(e) => handleCellEdit(row.id, cellIndex, e.target.value)}
                                 className="flex-1 border rounded px-2 py-1"
                                 autoFocus
                               />
                               <button
-                                onClick={() => setEditingCell(null)}
+                                onClick={() => saveCell(row.id, cellIndex)}
                                 className="text-green-600 hover:text-green-700"
                               >
                                 <Save size={16} />
                               </button>
                               <button
-                                onClick={() => setEditingCell(null)}
+                                onClick={() => toggleCellEdit(row.id, cellIndex)}
                                 className="text-red-600 hover:text-red-700"
                               >
                                 <X size={16} />
@@ -117,7 +199,7 @@ const PresentationViewer: React.FC = () => {
                             </div>
                           ) : (
                             <span className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded">
-                              {cell}
+                              {cell.value}
                             </span>
                           )}
                         </td>
@@ -149,7 +231,7 @@ const PresentationViewer: React.FC = () => {
                 </button>
               </div>
               <div className="text-sm text-gray-600">
-                Showing {startIndex + 1}-{Math.min(endIndex, rows.length)} of {rows.length} rows
+                Showing {startIndex + 1}-{Math.min(endIndex, totalRows)} of {totalRows} rows
               </div>
             </div>
           </>
