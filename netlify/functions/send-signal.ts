@@ -1,7 +1,7 @@
 import { Handler } from '@netlify/functions';
 import fetch from 'node-fetch';
 
-const SIGNAL_API_URL = process.env.SIGNAL_API_URL || 'http://localhost:8080/v2/send';
+const SIGNAL_API_URL = process.env.SIGNAL_API_URL || 'http://localhost:8081/v2/send';
 const SIGNAL_NUMBER = process.env.SIGNAL_NUMBER;
 
 export const handler: Handler = async (event) => {
