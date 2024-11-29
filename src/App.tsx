@@ -101,11 +101,12 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      <header className="bg-[#2E2457] text-white py-4 fixed w-full z-50">
+      <header className="bg-gradient-to-r from-[#2E2457] via-[#453975] to-[#5C4E94] text-white py-4 fixed w-full z-50"> 
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center">
             <img 
-              src="/assets/leannone-logo-transparent.png" 
+              // src="/assets/leannone-logo-transparent.png" 
+              src="https://raw.githubusercontent.com/YaadR/the-first-app-yaads-made/main/assets/leannone-logo-transparent.png"
               alt="LeannOne Logo" 
               className="h-8"
             />
@@ -263,7 +264,7 @@ function App() {
       <footer className="bg-[#2E2457] text-white py-6">
         <div className="container mx-auto px-4 text-center">
           <p>&copy; 2024 LeannOne. All rights reserved.</p>
-          <p className="mt-2 text-sm text-gray-400">Powered by WhatsApp Business API</p>
+          <p className="mt-2 text-sm text-gray-400">Powered by AI API</p>
         </div>
       </footer>
 

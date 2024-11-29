@@ -32,21 +32,21 @@ function Contact() {
                 <Mail className="h-6 w-6 text-blue-500 mr-4" />
                 <div>
                   <h4 className="font-medium">Email</h4>
-                  <p className="text-gray-600">support@kokoapp.com</p>
+                  <p className="text-gray-600">labsventory@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-center">
                 <Phone className="h-6 w-6 text-blue-500 mr-4" />
                 <div>
                   <h4 className="font-medium">Phone</h4>
-                  <p className="text-gray-600">+1 (555) 123-4567</p>
+                  <p className="text-gray-600">+1 (000) 000-0000</p>
                 </div>
               </div>
               <div className="flex items-center">
                 <MapPin className="h-6 w-6 text-blue-500 mr-4" />
                 <div>
                   <h4 className="font-medium">Location</h4>
-                  <p className="text-gray-600">San Francisco, CA</p>
+                  <p className="text-gray-600">Haifa, IL</p>
                 </div>
               </div>
             </div>
