@@ -10,7 +10,7 @@ interface User {
   email: string;
   role: string;
   organizationId: string;
-  type: string;
+  organizationName: string;
 }
 
 interface AddUserProps {
@@ -25,14 +25,43 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   const [error, setError] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [formData, setFormData] = useState({
     displayName: '',
     phone: '',
     email: '',
     role: 'employee',
-    type: 'user'
+    organizationId: '',
+    organizationName: ''
   });
+
+  useEffect(() => {
+    checkAdminStatus();
+    fetchOrganizationInfo();
+  }, [devMode]);
+
+  const checkAdminStatus = async () => {
+    if (!auth.currentUser && !devMode) return;
+
+    try {
+      const adminDoc = await getDoc(doc(db, 'admins', auth.currentUser?.uid || 'dev-mode-user'));
+      if (adminDoc.exists()) {
+        setIsAdmin(true);
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser?.uid || 'dev-mode-user'));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'admin' || userData.type === 'admin') {
+          setIsAdmin(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchOrganizationInfo = async () => {
     if (!auth.currentUser && !devMode) return null;
@@ -64,16 +93,19 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
       setRefreshing(true);
       setError(null);
 
-      const orgId = organizationId || await fetchOrganizationInfo();
-      if (!orgId) {
-        setError('No organization found. Please set up your organization first.');
-        return;
+      let usersQuery;
+      if (isAdmin) {
+        usersQuery = query(collection(db, 'users'));
+      } else {
+        const orgId = organizationId || await fetchOrganizationInfo();
+        if (!orgId) {
+          setError('No organization found. Please set up your organization first.');
+          return;
+        }
+        usersQuery = query(collection(db, 'users'), where('organizationId', '==', orgId));
       }
 
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('organizationId', '==', orgId));
-      const querySnapshot = await getDocs(q);
-      
+      const querySnapshot = await getDocs(usersQuery);
       const fetchedUsers = querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data()
@@ -90,7 +122,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
 
   useEffect(() => {
     fetchUsers();
-  }, [devMode]);
+  }, [isAdmin, organizationId, devMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -125,7 +157,8 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
         phone: '',
         email: '',
         role: 'employee',
-        type: 'user'
+        organizationId: '',
+        organizationName: ''
       });
       setShowForm(false);
       
@@ -136,11 +169,9 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
     }
   };
 
-  const handleDelete = async (userId: string, userRole: string, userType: string) => {
-    // Prevent deletion of managers/admins
-    if (userRole === 'manager' || userRole === 'admin' || 
-        userType === 'manager' || userType === 'admin') {
-      setError('Cannot delete manager or admin users');
+  const handleDelete = async (userId: string, userRole: string) => {
+    if (userRole === 'admin') {
+      setError('Cannot delete admin users');
       return;
     }
 
@@ -165,10 +196,8 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
   };
 
   const handleEdit = async (user: User) => {
-    // Prevent editing role/type for managers/admins
-    if (user.role === 'manager' || user.role === 'admin' || 
-        user.type === 'manager' || user.type === 'admin') {
-      setError('Cannot modify manager or admin users');
+    if (user.role === 'admin') {
+      setError('Cannot modify admin users');
       return;
     }
 
@@ -189,7 +218,8 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
         phone: user.phone,
         email: user.email,
         role: user.role,
-        type: user.type
+        organizationId: user.organizationId,
+        organizationName: user.organizationName
       });
     }
   };
@@ -286,7 +316,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Organization</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -323,11 +353,10 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
                   {user.role}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  {user.type}
+                  {user.organizationName}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {user.role !== 'manager' && user.role !== 'admin' &&
-                   user.type !== 'manager' && user.type !== 'admin' && (
+                  {user.role !== 'admin' && (
                     <>
                       <button
                         onClick={() => handleEdit(user)}
@@ -344,7 +373,7 @@ const AddUser: React.FC<AddUserProps> = ({ devMode = false }) => {
                         </button>
                       ) : (
                         <button
-                          onClick={() => handleDelete(user.id, user.role, user.type)}
+                          onClick={() => handleDelete(user.id, user.role)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <Trash2 size={20} />

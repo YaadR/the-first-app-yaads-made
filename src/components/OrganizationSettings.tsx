@@ -1,30 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../config/firebase';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Save, RefreshCw } from 'lucide-react';
-
-interface Organization {
-  id: string;
-  name: string;
-  address: string;
-  phone: string;
-  email: string;
-  website: string;
-  description: string;
-  logo: string;
-}
+import { Organization } from '../types/organization';
+import OrganizationList from './Organization/OrganizationList';
 
 const OrganizationSettings: React.FC = () => {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    checkAdminStatus();
+    if (!isAdmin) {
+      fetchOrganization();
+    }
+  }, [isAdmin]);
+
+  const checkAdminStatus = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      // Check admins collection
+      const adminDoc = await getDoc(doc(db, 'admins', auth.currentUser.uid));
+      if (adminDoc.exists()) {
+        setIsAdmin(true);
+        return;
+      }
+
+      // Check user role/type
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role === 'admin' || userData.type === 'admin') {
+          setIsAdmin(true);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const fetchOrganization = async () => {
     if (!auth.currentUser) return;
     
     setLoading(true);
     try {
-      // First get the user's organization
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', auth.currentUser.email));
       const userSnapshot = await getDocs(q);
@@ -33,7 +56,6 @@ const OrganizationSettings: React.FC = () => {
         const userData = userSnapshot.docs[0].data();
         const orgName = userData.organizationName;
         
-        // Then get the organization details
         const orgsRef = collection(db, 'organizations');
         const orgQuery = query(orgsRef, where('name', '==', orgName));
         const orgSnapshot = await getDocs(orgQuery);
@@ -53,10 +75,6 @@ const OrganizationSettings: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchOrganization();
-  }, []);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setOrganization(prev => prev ? { ...prev, [name]: value } : null);
@@ -74,9 +92,8 @@ const OrganizationSettings: React.FC = () => {
         address: organization.address,
         phone: organization.phone,
         email: organization.email,
-        website: organization.website,
-        description: organization.description,
-        logo: organization.logo
+        task: organization.task || '',
+        requirements: organization.requirements || ''
       });
       alert('Organization settings updated successfully!');
     } catch (error) {
@@ -91,6 +108,17 @@ const OrganizationSettings: React.FC = () => {
     return (
       <div className="text-center p-8">
         <p className="text-xl mb-4">Please log in to manage organization settings</p>
+      </div>
+    );
+  }
+
+  if (isAdmin) {
+    return (
+      <div className="container mx-auto px-4">
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-2xl font-bold mb-6">Organizations</h2>
+          <OrganizationList />
+        </div>
       </div>
     );
   }
@@ -112,43 +140,15 @@ const OrganizationSettings: React.FC = () => {
 
         {organization ? (
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Organization Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={organization.name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Address
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={organization.address}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone
+                  Organization Name
                 </label>
                 <input
-                  type="tel"
-                  name="phone"
-                  value={organization.phone}
+                  type="text"
+                  name="name"
+                  value={organization.name}
                   onChange={handleChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
@@ -172,39 +172,27 @@ const OrganizationSettings: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Website
+                Address
               </label>
               <input
-                type="url"
-                name="website"
-                value={organization.website}
+                type="text"
+                name="address"
+                value={organization.address}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                Agent Task
               </label>
               <textarea
-                name="description"
-                value={organization.description}
+                name="task"
+                value={organization.task || ''}
                 onChange={handleChange}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Logo URL
-              </label>
-              <input
-                type="url"
-                name="logo"
-                value={organization.logo}
-                onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
