@@ -1,49 +1,78 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { OpenAI } from 'openai';
-import { Send, Loader2, AlertCircle, ToggleLeft, ToggleRight, Paperclip, X } from 'lucide-react';
+import { Loader2, AlertCircle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { ChatMessage } from './Chat/ChatMessage';
+import { ChatInput } from './Chat/ChatInput';
+import { getChatContext, sendChatSummary } from '../utils/chat';
+
+interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  attachments?: string[];
+}
 
 interface ChatBotProps {
   openai: OpenAI | null;
 }
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-  attachments?: string[];
-}
-
 function ChatBot({ openai }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [usePerplexity, setUsePerplexity] = useState(false);
-  const [attachments, setAttachments] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [context, setContext] = useState<{
+    requirements: string;
+    task: string;
+    userName: string;
+    agentName: string;
+  } | null>(null);
+  const [isComplete, setIsComplete] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const fileUrls = Array.from(files).map(file => URL.createObjectURL(file));
-      setAttachments(prev => [...prev, ...fileUrls]);
-    }
-  };
+  useEffect(() => {
+    const initializeChat = async () => {
+      const chatContext = await getChatContext();
+      if (chatContext) {
+        setContext(chatContext);
+        
+        // Set up initial system context and greeting
+        const systemMessage: Message = {
+          role: 'system',
+          content: `You are ${chatContext.agentName}, an AI assistant. Your task is: ${chatContext.task}. 
+                   Requirements: ${chatContext.requirements}. 
+                   You are speaking with ${chatContext.userName}.
+                   Always introduce yourself as ${chatContext.agentName} and maintain this identity throughout the conversation.
+                   Never mention that you're an AI model or language model.
+                   Stay focused on your assigned task and requirements.`
+        };
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!openai) {
-      return;
-    }
-    
-    if (!input.trim() && attachments.length === 0) return;
+        const greetingMessage: Message = {
+          role: 'assistant',
+          content: `Hello ${chatContext.userName}! I'm ${chatContext.agentName}. How can I assist you today?`
+        };
 
-    const userMessage: Message = { 
-      role: 'user', 
-      content: input,
-      attachments: attachments.length > 0 ? attachments : undefined
+        setMessages([systemMessage, greetingMessage]);
+      }
     };
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
-    setInput('');
-    setAttachments([]);
+
+    initializeChat();
+  }, []);
+
+  const checkCompletion = useCallback((message: string) => {
+    const completionPhrases = [
+      'i am done',
+      'i\'m done',
+      'that\'s all',
+      'that is all',
+      'thank you, that\'s all',
+      'thanks, that\'s all'
+    ];
+    return completionPhrases.some(phrase => message.toLowerCase().includes(phrase));
+  }, []);
+
+  const handleSendMessage = async (content: string, attachments: string[]) => {
+    if (!openai || isComplete || !context) return;
+
+    const userMessage: Message = { role: 'user', content, attachments };
+    setMessages(prev => [...prev, userMessage]);
     setLoading(true);
 
     try {
@@ -58,42 +87,56 @@ function ChatBot({ openai }: ChatBotProps) {
           },
           body: JSON.stringify({
             model: 'llama-3.1-sonar-small-128k-online',
-            messages: [...messages, userMessage].map(({ role, content }) => ({ role, content })),
+            messages: messages.concat(userMessage).map(({ role, content }) => ({ role, content })),
           }),
         });
-    
-        // Check if the response is ok before proceeding
+
         if (!response.ok) {
-          const errorText = await response.text();  // Get the error message if the response isn't OK
-          throw new Error(`Perplexity API Error: ${errorText}`);
+          throw new Error('Perplexity API Error');
         }
-    
+
         const data = await response.json();
         response = { choices: [{ message: { content: data.choices[0].message.content } }] };
       } else {
         response = await openai.chat.completions.create({
           model: "gpt-4",
-          messages: [...messages, userMessage].map(({ role, content }) => ({ role, content })),
+          messages: messages.concat(userMessage).map(({ role, content }) => ({ role, content })),
         });
       }
-    
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: response.choices[0].message.content || 'Sorry, I couldn\'t generate a response.',
       };
-      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+      setMessages(prev => [...prev, assistantMessage]);
+
+      if (checkCompletion(content)) {
+        setIsComplete(true);
+        // Send chat summary
+        await sendChatSummary({
+          userName: context.userName,
+          agentName: context.agentName,
+          timestamp: new Date().toISOString(),
+          requirements: context.requirements,
+          task: context.task,
+          conversation: messages
+            .filter(m => m.role !== 'system')
+            .concat(userMessage, assistantMessage),
+          completionStatus: 'completed'
+        });
+      }
     } catch (error) {
       console.error('Error in chat completion:', error);
-      
-      // More detailed error information for debugging
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { role: 'assistant', content: `Sorry, an error occurred: ${errorMessage}. Please try again.` },
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, an error occurred. Please try again.',
+        },
       ]);
     } finally {
       setLoading(false);
-    }    
+    }
   };
 
   if (!openai) {
@@ -131,94 +174,25 @@ function ChatBot({ openai }: ChatBotProps) {
       </div>
 
       <div className="h-96 overflow-y-auto mb-4 p-4 border border-gray-200 rounded">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`mb-4 ${
-              message.role === 'user' ? 'text-right' : 'text-left'
-            }`}
-          >
-            {message.attachments && message.attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {message.attachments.map((url, i) => (
-                  <img 
-                    key={i} 
-                    src={url} 
-                    alt={`Attachment ${i + 1}`} 
-                    className="max-w-xs h-auto rounded"
-                  />
-                ))}
-              </div>
-            )}
-            <span
-              className={`inline-block p-2 rounded-lg ${
-                message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-800'
-              }`}
-            >
-              {message.content}
-            </span>
-          </div>
+            {messages
+        .filter(message => message.role !== 'system') // Exclude 'system' messages
+        .map((message, index) => (
+          <ChatMessage key={index} {...(message as Omit<Message, 'role'> & { role: 'user' | 'assistant' })} />
         ))}
+        {loading && (
+          <div className="flex justify-center">
+            <Loader2 className="animate-spin" size={24} />
+          </div>
+        )}
       </div>
 
-      {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {attachments.map((url, index) => (
-            <div key={index} className="relative">
-              <img 
-                src={url} 
-                alt={`Upload preview ${index + 1}`} 
-                className="w-20 h-20 object-cover rounded"
-              />
-              <button
-                onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
+      <ChatInput onSend={handleSendMessage} disabled={loading || isComplete} />
+      
+      {isComplete && (
+        <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md">
+          Chat session completed. Thank you for using our service!
         </div>
       )}
-
-      <form onSubmit={sendMessage} className="flex items-center space-x-2">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          className="hidden"
-          multiple
-          accept="image/*,.pdf,.doc,.docx"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 text-gray-500 hover:text-gray-700"
-        >
-          <Paperclip size={20} />
-        </button>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          className="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Type your message..."
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
-          disabled={loading}
-        >
-          {loading ? (
-            <Loader2 className="animate-spin" size={20} />
-          ) : (
-            <Send size={20} />
-          )}
-        </button>
-      </form>
     </div>
   );
 }
