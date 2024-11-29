@@ -106,7 +106,7 @@ function App() {
           <div className="flex items-center">
             <img 
               // src="/assets/leannone-logo-transparent.png" 
-              src="https://raw.githubusercontent.com/YaadR/the-first-app-yaads-made/main/assets/leannone-logo-transparent.png"
+              src={import.meta.env.VITE_LEANNONE_LOGO}
               alt="LeannOne Logo" 
               className="h-8"
             />

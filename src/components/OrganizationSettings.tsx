@@ -31,7 +31,7 @@ const OrganizationSettings: React.FC = () => {
       
       if (!userSnapshot.empty) {
         const userData = userSnapshot.docs[0].data();
-        const orgName = userData.organization;
+        const orgName = userData.organizationName;
         
         // Then get the organization details
         const orgsRef = collection(db, 'organizations');
