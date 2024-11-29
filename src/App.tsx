@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { OpenAI } from 'openai';
-import { Code2, MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight, Building2 } from 'lucide-react';
+import { MessageSquare, UserPlus, Menu, X, FileSpreadsheet, ToggleLeft, ToggleRight, Building2, Bot } from 'lucide-react';
 import ChatBot from './components/ChatBot';
+import ChatBotSmart from './components/ChatBotSmart';
 import Auth from './components/Auth/Auth';
 import RegistrationCompletion from './components/RegistrationCompletion';
 import Subscription from './components/Subscription';
@@ -87,6 +88,8 @@ function App() {
         return <ComponentsPage />;
       case 'chat':
         return <ChatBot openai={openai} />;
+      case 'chatbot-smart':
+        return <ChatBotSmart />;
       case 'users':
         return <AddUser devMode={devMode} />;
       case 'presentation':
@@ -97,12 +100,15 @@ function App() {
   }, [activeTool, showRegistration, user, devMode, openai]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-gray-800 text-white py-4 fixed w-full z-50">
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <header className="bg-[#2E2457] text-white py-4 fixed w-full z-50">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center">
-            <Code2 className="mr-2" size={24} />
-            <span className="text-xl font-bold">LeannOne</span>
+            <img 
+              src="/assets/leannone-logo-transparent.png" 
+              alt="LeannOne Logo" 
+              className="h-8"
+            />
           </div>
           
           <div className="flex items-center space-x-4">
@@ -129,7 +135,7 @@ function App() {
             )}
           </div>
 
-          <nav className={`${menuOpen ? 'block' : 'hidden'} md:block absolute md:relative top-full left-0 w-full md:w-auto bg-gray-800 md:bg-transparent`}>
+          <nav className={`${menuOpen ? 'block' : 'hidden'} md:block absolute md:relative top-full left-0 w-full md:w-auto bg-[#2E2457] md:bg-transparent`}>
             <ul className="flex flex-col md:flex-row md:items-center md:space-x-6 p-4 md:p-0">
               <li>
                 <button onClick={() => scrollToSection('tools')} className="w-full text-left py-2 md:py-0 hover:text-gray-300">
@@ -168,10 +174,10 @@ function App() {
 
       <main className="flex-grow pt-16">
         <section id="tools" className="min-h-screen">
-          <div className="bg-gradient-to-r from-blue-600 via-purple-500 to-green-500 text-white py-20">
+          <div className="bg-gradient-to-r from-[#2E2457] via-[#453975] to-[#5C4E94] text-white py-20">
             <div className="container mx-auto px-4 text-center">
-              <h1 className="text-4xl font-bold mb-4">LeannOne Tools</h1>
-              <p className="text-xl">Connect with your team through WhatsApp and manage your organization</p>
+              <h1 className="text-4xl font-bold mb-4">LeannOne Agent</h1>
+              <p className="text-xl">Accelerate your Business Processes with Leann.One</p>
             </div>
           </div>
 
@@ -181,7 +187,7 @@ function App() {
                 <button
                   onClick={() => setActiveTool('organization')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'organization' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'organization' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   <Building2 className="mr-2" size={20} />
@@ -190,7 +196,7 @@ function App() {
                 <button
                   onClick={() => setActiveTool('interact')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'interact' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'interact' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   <UserPlus className="mr-2" size={20} />
@@ -199,16 +205,25 @@ function App() {
                 <button
                   onClick={() => setActiveTool('chat')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'chat' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'chat' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   <MessageSquare className="mr-2" size={20} />
                   ChatBot
                 </button>
                 <button
+                  onClick={() => setActiveTool('chatbot-smart')}
+                  className={`flex items-center px-4 py-2 rounded-md ${
+                    activeTool === 'chatbot-smart' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <Bot className="mr-2" size={20} />
+                  Smart ChatBot
+                </button>
+                <button
                   onClick={() => setActiveTool('users')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'users' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'users' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   <UserPlus className="mr-2" size={20} />
@@ -217,7 +232,7 @@ function App() {
                 <button
                   onClick={() => setActiveTool('presentation')}
                   className={`flex items-center px-4 py-2 rounded-md ${
-                    activeTool === 'presentation' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    activeTool === 'presentation' ? 'bg-[#2E2457] text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                   }`}
                 >
                   <FileSpreadsheet className="mr-2" size={20} />
@@ -245,7 +260,7 @@ function App() {
         </section>
       </main>
 
-      <footer className="bg-gray-800 text-white py-6">
+      <footer className="bg-[#2E2457] text-white py-6">
         <div className="container mx-auto px-4 text-center">
           <p>&copy; 2024 LeannOne. All rights reserved.</p>
           <p className="mt-2 text-sm text-gray-400">Powered by WhatsApp Business API</p>
