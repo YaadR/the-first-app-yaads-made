@@ -31,17 +31,11 @@ export function ChatContainer({ openai }: ChatContainerProps) {
       const assistantContext = await getChatContext();
       if (assistantContext) {
         setContext(assistantContext);
-        const systemMessage: Message = {
-          role: 'system',
-          content: `You are ${assistantContext.agentName}, an AI assistant.
-                    You are speaking with ${assistantContext.userName}.
-                    Understand your task from ${assistantContext.task}`
-        }; 
         const greetingMessage: Message = {
           role: 'assistant',
           content: `Hello ${assistantContext.userName}! I'm ${assistantContext.agentName}.`
         };
-        setMessages([systemMessage, greetingMessage]);
+        setMessages([greetingMessage]);
       }
     };
 
@@ -56,7 +50,7 @@ export function ChatContainer({ openai }: ChatContainerProps) {
     setLoading(true);
 
     try {
-      const response = await queryAssistant(openai, content);
+      const response = await queryAssistant(openai, content, context);
       
       const assistantMessage: Message = {
         role: 'assistant',
@@ -93,14 +87,12 @@ export function ChatContainer({ openai }: ChatContainerProps) {
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="h-96 overflow-y-auto mb-4 p-4 border border-gray-200 rounded">
-        {messages
-          .filter(message => message.role !== 'system')
-          .map((message, index) => (
-            <ChatMessage 
-              key={index} 
-              {...(message as Omit<Message, 'role'> & { role: 'user' | 'assistant' })} 
-            />
-          ))}
+        {messages.map((message, index) => (
+          <ChatMessage 
+            key={index} 
+            {...(message as Omit<Message, 'role'> & { role: 'user' | 'assistant' })} 
+          />
+        ))}
         {loading && (
           <div className="flex justify-center">
             <Loader2 className="animate-spin" size={24} />
