@@ -22,14 +22,12 @@ const OrganizationSettings: React.FC = () => {
     if (!auth.currentUser) return;
 
     try {
-      // Check admins collection
       const adminDoc = await getDoc(doc(db, 'admins', auth.currentUser.uid));
       if (adminDoc.exists()) {
         setIsAdmin(true);
         return;
       }
 
-      // Check user role/type
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
@@ -75,7 +73,7 @@ const OrganizationSettings: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setOrganization(prev => prev ? { ...prev, [name]: value } : null);
   };
@@ -92,8 +90,7 @@ const OrganizationSettings: React.FC = () => {
         address: organization.address,
         phone: organization.phone,
         email: organization.email,
-        task: organization.task || '',
-        requirements: organization.requirements || ''
+        task: organization.task || ''
       });
       alert('Organization settings updated successfully!');
     } catch (error) {
@@ -181,19 +178,6 @@ const OrganizationSettings: React.FC = () => {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Agent Task
-              </label>
-              <textarea
-                name="task"
-                value={organization.task || ''}
-                onChange={handleChange}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 

@@ -1,32 +1,28 @@
 import { db, auth } from '../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
-interface ChatContext {
-  requirements: string;
+interface AssistantContext {
   task: string;
   userName: string;
   agentName: string;
 }
 
-export async function getChatContext(): Promise<ChatContext | null> {
+export async function getChatContext(): Promise<AssistantContext | null> {
   if (!auth.currentUser) return null;
 
   try {
-    // Get user data
     const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
     if (!userDoc.exists()) return null;
     
     const userData = userDoc.data();
     const orgId = userData.organizationId;
 
-    // Get organization data
     const orgDoc = await getDoc(doc(db, 'organizations', orgId));
     if (!orgDoc.exists()) return null;
     
     const orgData = orgDoc.data();
 
     return {
-      requirements: orgData.requirements || '',
       task: orgData.task || '',
       userName: userData.displayName || 'User',
       agentName: 'Leann'
