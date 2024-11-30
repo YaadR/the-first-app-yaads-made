@@ -27,26 +27,45 @@ function ChatBot({ openai }: ChatBotProps) {
   } | null>(null);
   const [isComplete, setIsComplete] = useState(false);
 
+  const completionPhrases = {
+    en: ['i am done', "i'm done", "that's all", 'that is all', "thank you, that's all", "thanks, that's all"],
+    es: ['he terminado', 'eso es todo', 'gracias, eso es todo'],
+    he: ['סיימתי', 'זה הכל', 'תודה, זה הכל'],
+    ar: ['لقد انتهيت', 'هذا كل شيء', 'شكرًا، هذا كل شيء'],
+  };
+
+  const detectLanguage = (text: string): keyof typeof completionPhrases => {
+    if (/[\u0590-\u05FF]/.test(text)) return 'he'; // Hebrew
+    if (/[\u0600-\u06FF]/.test(text)) return 'ar'; // Arabic
+    if (/[áéíóúñ]/i.test(text)) return 'es';       // Spanish
+    return 'en'; // Default to English
+  };
+
+  const checkCompletion = useCallback((message: string) => {
+    const language = detectLanguage(message.toLowerCase());
+    const phrases = completionPhrases[language] || [];
+    return phrases.some(phrase => message.toLowerCase().includes(phrase));
+  }, []);
+
   useEffect(() => {
     const initializeChat = async () => {
       const chatContext = await getChatContext();
       if (chatContext) {
         setContext(chatContext);
-        
-        // Set up initial system context and greeting
+
         const systemMessage: Message = {
           role: 'system',
           content: `You are ${chatContext.agentName}, an AI assistant. Your task is: ${chatContext.task}. 
-                   Requirements: ${chatContext.requirements}. 
-                   You are speaking with ${chatContext.userName}.
-                   Always introduce yourself as ${chatContext.agentName} and maintain this identity throughout the conversation.
-                   Never mention that you're an AI model or language model.
-                   Stay focused on your assigned task and requirements.`
+                    Requirements: ${chatContext.requirements}. 
+                    You are speaking with ${chatContext.userName}.
+                    Always introduce yourself as ${chatContext.agentName} and maintain this identity throughout the conversation.
+                    Never mention that you're an AI model or language model.
+                    Stay focused on your assigned task and requirements.`,
         };
 
         const greetingMessage: Message = {
           role: 'assistant',
-          content: `Hello ${chatContext.userName}! I'm ${chatContext.agentName}. How can I assist you today?`
+          content: `Hello ${chatContext.userName}! I'm ${chatContext.agentName}. How can I assist you today?`,
         };
 
         setMessages([systemMessage, greetingMessage]);
@@ -54,18 +73,6 @@ function ChatBot({ openai }: ChatBotProps) {
     };
 
     initializeChat();
-  }, []);
-
-  const checkCompletion = useCallback((message: string) => {
-    const completionPhrases = [
-      'i am done',
-      'i\'m done',
-      'that\'s all',
-      'that is all',
-      'thank you, that\'s all',
-      'thanks, that\'s all'
-    ];
-    return completionPhrases.some(phrase => message.toLowerCase().includes(phrase));
   }, []);
 
   const handleSendMessage = async (content: string, attachments: string[]) => {
@@ -77,7 +84,7 @@ function ChatBot({ openai }: ChatBotProps) {
 
     try {
       let response;
-      
+
       if (usePerplexity) {
         response = await fetch('https://api.perplexity.ai/chat/completions', {
           method: 'POST',
@@ -99,20 +106,19 @@ function ChatBot({ openai }: ChatBotProps) {
         response = { choices: [{ message: { content: data.choices[0].message.content } }] };
       } else {
         response = await openai.chat.completions.create({
-          model: "gpt-4",
+          model: 'gpt-4',
           messages: messages.concat(userMessage).map(({ role, content }) => ({ role, content })),
         });
       }
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.choices[0].message.content || 'Sorry, I couldn\'t generate a response.',
+        content: response.choices[0].message.content || "Sorry, I couldn't generate a response.",
       };
       setMessages(prev => [...prev, assistantMessage]);
 
       if (checkCompletion(content)) {
         setIsComplete(true);
-        // Send chat summary
         await sendChatSummary({
           userName: context.userName,
           agentName: context.agentName,
@@ -122,7 +128,7 @@ function ChatBot({ openai }: ChatBotProps) {
           conversation: messages
             .filter(m => m.role !== 'system')
             .concat(userMessage, assistantMessage),
-          completionStatus: 'completed'
+          completionStatus: 'completed',
         });
       }
     } catch (error) {
@@ -174,11 +180,11 @@ function ChatBot({ openai }: ChatBotProps) {
       </div>
 
       <div className="h-96 overflow-y-auto mb-4 p-4 border border-gray-200 rounded">
-            {messages
-        .filter(message => message.role !== 'system') // Exclude 'system' messages
-        .map((message, index) => (
-          <ChatMessage key={index} {...(message as Omit<Message, 'role'> & { role: 'user' | 'assistant' })} />
-        ))}
+        {messages
+          .filter(message => message.role !== 'system')
+          .map((message, index) => (
+            <ChatMessage key={index} {...(message as Omit<Message, 'role'> & { role: 'user' | 'assistant' })} />
+          ))}
         {loading && (
           <div className="flex justify-center">
             <Loader2 className="animate-spin" size={24} />
@@ -187,7 +193,7 @@ function ChatBot({ openai }: ChatBotProps) {
       </div>
 
       <ChatInput onSend={handleSendMessage} disabled={loading || isComplete} />
-      
+
       {isComplete && (
         <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-md">
           Chat session completed. Thank you for using our service!
