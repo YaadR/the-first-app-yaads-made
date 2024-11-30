@@ -34,11 +34,12 @@ export function ChatContainer({ openai }: ChatContainerProps) {
         const systemMessage: Message = {
           role: 'system',
           content: `You are ${assistantContext.agentName}, an AI assistant.
-                    You are speaking with ${assistantContext.userName}.`
-        };//  Your task is: ${assistantContext.task}. 
+                    You are speaking with ${assistantContext.userName}.
+                    Understand your task from ${assistantContext.task}`
+        }; 
         const greetingMessage: Message = {
           role: 'assistant',
-          content: `Hello ${assistantContext.userName}! I'm ${assistantContext.agentName}. How can I assist you today?`
+          content: `Hello ${assistantContext.userName}! I'm ${assistantContext.agentName}.`
         };
         setMessages([systemMessage, greetingMessage]);
       }
