@@ -21,12 +21,14 @@ const OrganizationCard: React.FC<OrganizationCardProps> = ({ organization }) => 
     e.preventDefault();
     try {
       const orgRef = doc(db, 'organizations', organization.id);
-      await updateDoc(orgRef, formData);
+      // Cast formData to ensure it's a plain object with string keys
+      await updateDoc(orgRef, formData as Record<string, any>);
       setEditing(false);
     } catch (error) {
       console.error('Error updating organization:', error);
     }
   };
+  
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
